@@ -1,0 +1,10 @@
+[tool.ruff]
+line-length = 130
+ignore = ["E731", "F841", "E713"]
+exclude = ["*/migrations/*"]
+
+[tool.black]
+force_exclude = '''(/migrations/)'''
+
+[tool.isort]
+profile = "black"

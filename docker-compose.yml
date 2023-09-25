@@ -1,0 +1,69 @@
+services:
+  postgres:
+    container_name: postgres
+    image: postgres:latest
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    env_file:
+      - .env
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d $POSTGRES_DB -U $POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app_network
+  web:
+    container_name: web
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "
+             python src/manage.py migrate &&
+             python src/manage.py create_test_admin &&
+             python src/manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - .:/code
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - app_network
+
+  celery:
+    restart: always
+    container_name: celery
+    build:
+      context: .
+      dockerfile: ./docker/Dockerfile
+    command: sh -c "celery -A src.core worker -l INFO"
+    volumes:
+      - .:/code
+    env_file:
+      - .env
+    depends_on:
+      - web
+      - redis
+    networks:
+      - app_network
+
+  redis:
+    container_name: redis
+    image: redis
+    networks:
+      - app_network
+
+networks:
+  app_network:
+
+volumes:
+  postgres_data:
